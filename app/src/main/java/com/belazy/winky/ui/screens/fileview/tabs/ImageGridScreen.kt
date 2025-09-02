@@ -1,5 +1,6 @@
 package com.belazy.winky.ui.screens.fileview.tabs
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -44,19 +45,17 @@ fun ImageGridScreen(
         }
     }
 
-    // Handle infinite scrolling
+    // Infinite scrolling
     LaunchedEffect(gridState) {
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
             .collect { lastVisibleIndex ->
-                if (lastVisibleIndex != null &&
-                    lastVisibleIndex >= images.size - 10 &&
-                    !isLoading) {
+                if (lastVisibleIndex != null && lastVisibleIndex >= images.size - 10 && !isLoading) {
                     viewModel.loadImages()
                 }
             }
     }
 
-    // Show error snackbar
+    // Handle errors
     uiState.errorMessage?.let { error ->
         LaunchedEffect(error) {
             // Show snackbar or handle error UI
@@ -64,9 +63,7 @@ fun ImageGridScreen(
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         when {
             images.isEmpty() && isLoading -> {
                 CircularProgressIndicator(
@@ -84,15 +81,14 @@ fun ImageGridScreen(
             else -> {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 120.dp),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
                     state = gridState,
                     contentPadding = PaddingValues(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
                 ) {
                     groupedImages.entries.forEach { (date, mediaList) ->
+                        // Date header
                         item(
                             key = "header_$date",
                             span = { GridItemSpan(maxLineSpan) }
@@ -100,6 +96,7 @@ fun ImageGridScreen(
                             DateHeader(date = date)
                         }
 
+                        // Media items
                         items(
                             items = mediaList,
                             key = { media -> "image_${media.uri}" }
@@ -107,13 +104,15 @@ fun ImageGridScreen(
                             ImageGridItem(
                                 media = media,
                                 onClick = {
-                                    val globalIndex = images.indexOf(media)
-                                    navController.navigate("detail/$globalIndex/image")
+                                    // Pass URI instead of index for safe navigation
+                                    val encodedUri = Uri.encode(media.uri.toString())
+                                    navController.navigate("detail/$encodedUri")
                                 }
                             )
                         }
                     }
 
+                    // Loading footer
                     if (isLoading) {
                         item(
                             key = "loading",
@@ -125,9 +124,7 @@ fun ImageGridScreen(
                                     .padding(16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp)
-                                )
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             }
                         }
                     }

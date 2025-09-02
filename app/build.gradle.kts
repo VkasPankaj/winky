@@ -89,6 +89,7 @@ dependencies {
 
     // Hilt for dependency injection
     implementation(libs.hilt.android)
+    implementation(libs.androidx.ui)
     kapt(libs.hilt.compiler)
 
     // Permissions
