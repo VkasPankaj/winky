@@ -1,17 +1,23 @@
 package com.belazy.winky.ui.screens.fileview.tabs
 
 import android.net.Uri
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,17 +64,46 @@ fun ImageGridScreen(
     // Handle errors
     uiState.errorMessage?.let { error ->
         LaunchedEffect(error) {
-            // Show snackbar or handle error UI
             viewModel.clearError()
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0A0A))
+    ) {
         when {
             images.isEmpty() && isLoading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF1A1A1A),
+                                    Color(0xFF0A0A0A)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF3B82F6),
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = "Loading images...",
+                            color = Color(0xFF9CA3AF),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
             }
 
             images.isEmpty() && !isLoading -> {
@@ -82,13 +117,13 @@ fun ImageGridScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 120.dp),
                     state = gridState,
-                    contentPadding = PaddingValues(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     groupedImages.entries.forEach { (date, mediaList) ->
-                        // Date header
+                        // Date header with modern design
                         item(
                             key = "header_$date",
                             span = { GridItemSpan(maxLineSpan) }
@@ -96,7 +131,7 @@ fun ImageGridScreen(
                             DateHeader(date = date)
                         }
 
-                        // Media items
+                        // Media items with modern cards
                         items(
                             items = mediaList,
                             key = { media -> "image_${media.uri}" }
@@ -104,7 +139,6 @@ fun ImageGridScreen(
                             ImageGridItem(
                                 media = media,
                                 onClick = {
-                                    // Pass URI instead of index for safe navigation
                                     val encodedUri = Uri.encode(media.uri.toString())
                                     navController.navigate("detail/$encodedUri")
                                 }
@@ -112,7 +146,7 @@ fun ImageGridScreen(
                         }
                     }
 
-                    // Loading footer
+                    // Modern loading footer
                     if (isLoading) {
                         item(
                             key = "loading",
@@ -121,10 +155,24 @@ fun ImageGridScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(24.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color(0xFF3B82F6),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(
+                                        text = "Loading more...",
+                                        color = Color(0xFF9CA3AF),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
                             }
                         }
                     }
@@ -139,20 +187,22 @@ private fun DateHeader(date: String) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 12.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = Color.Transparent
+        ),
     ) {
-        Text(
-            text = date,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(12.dp)
-        )
+
+            Text(
+                text = date,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                ),
+                color = Color.White
+            )
+
     }
 }
 
@@ -169,26 +219,46 @@ private fun ImageGridItem(
         modifier = modifier
             .aspectRatio(1f)
             .clickable { onClick() },
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color(0xFF1A1A1A)
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 8.dp
         )
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(media.uri)
-                .size(200, 200)
-                .memoryCacheKey("thumb_${media.uri}")
-                .diskCacheKey("thumb_${media.uri}")
-                .crossfade(true)
-                .build(),
-            contentDescription = media.displayName,
-            imageLoader = imageLoader,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(MaterialTheme.shapes.medium)
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(media.uri)
+                    .size(200, 200)
+                    .memoryCacheKey("thumb_${media.uri}")
+                    .diskCacheKey("thumb_${media.uri}")
+                    .crossfade(true)
+                    .build(),
+                contentDescription = media.displayName,
+                imageLoader = imageLoader,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+            )
+
+            // Gradient overlay for better text visibility
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.3f)
+                            )
+                        )
+                    )
+            )
+        }
     }
 }
 
@@ -198,31 +268,51 @@ private fun EmptyStateContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier
+            .padding(32.dp)
+            .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Modern empty state illustration
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .background(
+                    Color(0xFF1A1A1A),
+                    RoundedCornerShape(24.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Image,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = Color(0xFF4B5563)
+            )
+        }
+
         Text(
             text = "No images found",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            color = Color.White
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Tap the button below to refresh",
+            text = "Tap the button below to refresh and find your photos",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = Color(0xFF9CA3AF)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedButton(
+        Button(
             onClick = onRefresh,
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary
-            )
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF3B82F6)
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.padding(top = 8.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Refresh,
@@ -230,7 +320,12 @@ private fun EmptyStateContent(
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Refresh")
+            Text(
+                text = "Refresh",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
         }
     }
 }
