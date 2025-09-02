@@ -23,6 +23,7 @@ import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.belazy.winky.ui.screens.detail.ImageLoaderSingleton
 import com.belazy.winky.ui.screens.detail.VideoGridViewModel
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun VideoGridScreen(
@@ -48,42 +49,47 @@ fun VideoGridScreen(
             }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black) // set black background
+    ) {
         when {
             isLoading && groupedVideos.isEmpty() -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
             }
             groupedVideos.isNotEmpty() -> {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
+                    modifier = Modifier.fillMaxSize(),
                     state = gridState,
                     contentPadding = PaddingValues(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    groupedVideos.entries.forEachIndexed { groupIndex, (date, videos) ->
+                    groupedVideos.entries.forEach { (date, videos) ->
                         item(
                             key = "header_$date",
                             span = { GridItemSpan(3) }
                         ) {
-                            Text(
-                                text = date,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 8.dp, horizontal = 4.dp)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f))
-                                    .padding(8.dp)
-                            )
+                                    .padding(vertical = 8.dp)
+                                    .background(
+                                        Color.Transparent,
+                                    )
+                                    .padding(8.dp),
+                            ) {
+                                Text(
+                                    text = date,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp,
+                                        color = Color.White
+                                    )
+                                )
+                            }
                         }
                         items(
                             items = videos,
@@ -104,7 +110,7 @@ fun VideoGridScreen(
                                 modifier = Modifier
                                     .size(150.dp)
                                     .clip(MaterialTheme.shapes.medium)
-                                    .border(0.5.dp, MaterialTheme.colorScheme.outline)
+                                    .border(1.dp, Color.Gray)
                                     .clickable {
                                         val encoded = Uri.encode(media.uri.toString())
                                         navController.navigate("video_detail/$encoded")
