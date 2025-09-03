@@ -1,4 +1,4 @@
-// FileViewScreen.kt - Floating tab bar wider with more roundness
+// FileViewScreen.kt - Fixed with tab state preservation
 package com.belazy.winky.ui.screens.fileview
 
 import androidx.compose.animation.*
@@ -9,13 +9,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -24,14 +29,23 @@ import com.belazy.winky.ui.screens.fileview.tabs.VideoGridScreen
 
 @Composable
 fun FileViewScreen(navController: NavController) {
-    val tabItems = listOf("Images", "Videos") // Text-only tabs
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabItems = listOf("Images", "Videos")
+
+    // KEY FIX: Use rememberSaveable to preserve tab state across navigation
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var tabBarSize by remember { mutableStateOf(IntSize.Zero) }
 
     val density = LocalDensity.current
 
-    // Bubble animation offset
+    // Calculate responsive bubble positioning
+    val tabWidth = if (tabBarSize.width > 0) {
+        with(density) { (tabBarSize.width / tabItems.size).toDp() }
+    } else {
+        100.dp // Default fallback
+    }
+
     val bubbleOffsetX by animateFloatAsState(
-        targetValue = if (selectedTab == 0) 0f else 56f,
+        targetValue = selectedTab * tabWidth.value,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -39,16 +53,16 @@ fun FileViewScreen(navController: NavController) {
         label = "bubble_offset"
     )
 
-    // Bubble scale animation
+    // Bubble scale animation with more pronounced effect
     val bubbleScale by animateFloatAsState(
         targetValue = 1f,
         animationSpec = keyframes {
-            durationMillis = 600
-            1f at 0 with EaseInOutCubic
-            1.3f at 150 with EaseOutBack
-            0.9f at 300 with EaseInOut
-            1.05f at 450 with EaseOutBack
-            1f at 600 with EaseInOutCubic
+            durationMillis = 900
+            1f at 0 using EaseInOutCubic
+            1.2f at 150 using EaseOutBack
+            0.95f at 300 using EaseInOut
+            1.05f at 450 using EaseOutBack
+            1f at 900 using EaseInOutCubic
         },
         label = "bubble_scale"
     )
@@ -70,47 +84,58 @@ fun FileViewScreen(navController: NavController) {
             }
         }
 
-        // Wider floating bottom navigation with more rounded corners
+        // Compact floating bottom navigation
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .fillMaxWidth(0.6f), // Make it wider
-            shape = RoundedCornerShape(24.dp), // More roundness
+                .padding(horizontal = 24.dp, vertical = 24.dp)
+                .wrapContentWidth() // Responsive width
+                .widthIn(min = 200.dp, max = 300.dp), // Reasonable bounds
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xFF1A1A1A).copy(alpha = 0.95f)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
         ) {
             Box(
-                modifier = Modifier.padding(12.dp)
+                modifier = Modifier
+                    .padding(8.dp)
+                    .onGloballyPositioned { coordinates ->
+                        tabBarSize = coordinates.size
+                    }
             ) {
-                // Traveling Bubble Background
+                // Traveling Bubble Background - positioned behind text
                 Box(
                     modifier = Modifier
                         .offset(x = with(density) { bubbleOffsetX.dp })
-                        .size(width = 48.dp, height = 48.dp)
+                        .width(tabWidth)
+                        .height(44.dp)
                         .scale(bubbleScale)
-                        .graphicsLayer {
-                            shadowElevation = 8.dp.toPx()
-                        }
+                        .clip(RoundedCornerShape(12.dp))
                         .background(
-                            color = Color(0xFF3B82F6),
-                            shape = RoundedCornerShape(16.dp)
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFF4F46E5),
+                                    Color(0xFF1E3A8A)
+                                )
+                            )
                         )
                 )
 
-                // Tab buttons row (text-only)
+                // Tab buttons row
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
                 ) {
                     tabItems.forEachIndexed { index, title ->
                         val isSelected = selectedTab == index
 
                         // Text scale animation
                         val textScale by animateFloatAsState(
-                            targetValue = if (isSelected) 1.1f else 1f,
+                            targetValue = if (isSelected) 1.05f else 0.95f,
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                 stiffness = Spring.StiffnessHigh
@@ -118,50 +143,46 @@ fun FileViewScreen(navController: NavController) {
                             label = "text_scale_$index"
                         )
 
-                        // Text color animation
+                        // Text color animation with better contrast
                         val textColor by animateColorAsState(
                             targetValue = if (isSelected) Color.White else Color(0xFF9CA3AF),
-                            animationSpec = tween(durationMillis = 300),
+                            animationSpec = tween(durationMillis = 300, easing = EaseInOutCubic),
                             label = "text_color_$index"
                         )
 
-                        Text(
-                            text = title,
-                            fontSize = 14.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = textColor,
+                        // Individual tab container
+                        Box(
                             modifier = Modifier
-                                .scale(textScale)
-                                .clickable { selectedTab = index }
-                        )
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null // Remove ripple effect for cleaner look
+                                ) {
+                                    selectedTab = index
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = title,
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                color = textColor,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .scale(textScale)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Minimalistic dates section example (no background)
-        /*
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(16.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val dates = listOf("1", "2", "3", "4", "5")
-                dates.forEach { date ->
-                    Text(
-                        text = date,
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                }
-            }
-        }
-        */
-
+        // Trigger bubble animation on tab change
         LaunchedEffect(selectedTab) {
-            // Retriggers bubble animation on tab change
+            // Animation trigger
         }
     }
 }
