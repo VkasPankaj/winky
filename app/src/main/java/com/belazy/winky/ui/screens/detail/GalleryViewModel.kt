@@ -3,6 +3,7 @@ package com.belazy.winky.ui.screens.detail
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.belazy.winky.data.model.Folder
 import com.belazy.winky.data.model.MediaFile
 import com.belazy.winky.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +19,7 @@ class GalleryViewModel @Inject constructor(
     private val mediaRepository: MediaRepository
 ) : AndroidViewModel(application) {
 
-    private val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
     // State flows for UI
     private val _uiState = MutableStateFlow(GalleryUiState())
@@ -127,6 +128,23 @@ class GalleryViewModel @Inject constructor(
             isLoadingMore = false
         }
     }
+    fun loadAllMediaInBackground() {
+        viewModelScope.launch {
+            // Load all images incrementally
+            var prevSize: Int
+            do {
+                prevSize = _images.value.size
+                loadImages(forceRefresh = false)
+                // Folder counts update automatically because folders StateFlow recomputes
+            } while (_images.value.size > prevSize)
+
+            // Load all videos incrementally
+            do {
+                prevSize = _videos.value.size
+                loadVideos(forceRefresh = false)
+            } while (_videos.value.size > prevSize)
+        }
+    }
 
     fun refreshMedia() {
         currentImagePage = 0
@@ -145,6 +163,31 @@ class GalleryViewModel @Inject constructor(
             dateFormatter.format(mediaFile.dateAdded)
         }.toSortedMap(compareByDescending { it })
     }
+    private fun groupMediaByFolder(mediaFiles: List<MediaFile>): Map<String, List<MediaFile>> {
+        return mediaFiles.groupBy { it.folderName }
+            .toSortedMap(compareBy { it.lowercase(Locale.getDefault()) })
+    }
+
+    val groupedMediaByFolder: StateFlow<Map<String, List<MediaFile>>> = combine(_images, _videos) { images, videos ->
+        val allMedia = images + videos
+        groupMediaByFolder(allMedia)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyMap()
+    )
+
+    // Folders as a list
+    val folders: StateFlow<List<Folder>> = groupedMediaByFolder.map { grouped ->
+        grouped.map { (folderName, files) ->
+            val latestFile = files.maxByOrNull { it.dateAdded }
+            Folder(name = folderName, mediaCount = files.size, coverImagePath = latestFile?.uri.toString())
+        }.sortedBy { it.name }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     override fun onCleared() {
         super.onCleared()

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,7 +38,9 @@ fun MainScreen(
     imageViewModel: GalleryViewModel = hiltViewModel()
 ) {
     val tabItems = listOf("All Files", "Folder View")
-    var selectedTab by remember { mutableIntStateOf(0) }
+
+    // 🔥 FIX: Use rememberSaveable so tab state persists across navigation
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var tabBarSize by remember { mutableStateOf(IntSize.Zero) }
 
     val density = LocalDensity.current
@@ -47,11 +50,10 @@ fun MainScreen(
         imageViewModel.loadImages()
     }
 
-    // Calculate responsive bubble positioning
     val tabWidth = if (tabBarSize.width > 0) {
         with(density) { (tabBarSize.width / tabItems.size).toDp() }
     } else {
-        150.dp // Default fallback
+        150.dp
     }
 
     val bubbleOffsetX by animateFloatAsState(
@@ -63,7 +65,6 @@ fun MainScreen(
         label = "bubble_offset"
     )
 
-    // Bubble scale animation
     val bubbleScale by animateFloatAsState(
         targetValue = 1f,
         animationSpec = keyframes {
@@ -89,7 +90,7 @@ fun MainScreen(
                 )
             )
     ) {
-        // Modern Header with glass morphism effect
+        // Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -119,7 +120,7 @@ fun MainScreen(
             }
         }
 
-        // Custom Bubble-style Tab Bar
+        // Tab Bar
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -137,7 +138,6 @@ fun MainScreen(
                         tabBarSize = coordinates.size
                     }
             ) {
-                // Traveling Bubble Background
                 Box(
                     modifier = Modifier
                         .offset(x = with(density) { bubbleOffsetX.dp })
@@ -155,7 +155,6 @@ fun MainScreen(
                         )
                 )
 
-                // Tab buttons row
                 Row(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically,
@@ -166,7 +165,6 @@ fun MainScreen(
                     tabItems.forEachIndexed { index, title ->
                         val isSelected = selectedTab == index
 
-                        // Text scale animation
                         val textScale by animateFloatAsState(
                             targetValue = if (isSelected) 1.05f else 0.95f,
                             animationSpec = spring(
@@ -176,14 +174,12 @@ fun MainScreen(
                             label = "text_scale_$index"
                         )
 
-                        // Text color animation
                         val textColor by animateColorAsState(
                             targetValue = if (isSelected) Color.White else Color(0xFF9CA3AF),
                             animationSpec = tween(durationMillis = 300, easing = EaseInOutCubic),
                             label = "text_color_$index"
                         )
 
-                        // Individual tab container
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -215,7 +211,6 @@ fun MainScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Content with crossfade animation
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -232,11 +227,6 @@ fun MainScreen(
                     1 -> FolderViewScreen(navController)
                 }
             }
-        }
-
-        // Trigger bubble animation on tab change
-        LaunchedEffect(selectedTab) {
-            // Animation trigger
         }
     }
 }

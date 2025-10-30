@@ -19,7 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class MediaRepository @Inject constructor() {
 
-    // Use StateFlow instead of callbacks for reactive programming
+    // Reactive media lists
     private val _videosFlow = MutableStateFlow<List<MediaFile>>(emptyList())
     val videosFlow: StateFlow<List<MediaFile>> = _videosFlow.asStateFlow()
 
@@ -29,9 +29,10 @@ class MediaRepository @Inject constructor() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // Cache with proper memory management
+    // In-memory cache
     private var cachedVideos: List<MediaFile>? = null
     private var cachedImages: List<MediaFile>? = null
+    private var lastCacheTime: Long = 0
 
     private var videoObserver: ContentObserver? = null
     private var imageObserver: ContentObserver? = null
@@ -41,8 +42,6 @@ class MediaRepository @Inject constructor() {
         private const val CACHE_EXPIRY_MS = 5 * 60 * 1000L // 5 minutes
     }
 
-    private var lastCacheTime: Long = 0
-
     suspend fun getVideos(
         context: Context,
         page: Int = 0,
@@ -51,21 +50,17 @@ class MediaRepository @Inject constructor() {
         try {
             _isLoading.value = true
 
-            if (shouldRefreshCache(forceRefresh)) {
-                cachedVideos = null
-            }
-
+            if (shouldRefreshCache(forceRefresh)) cachedVideos = null
             if (cachedVideos == null) {
                 cachedVideos = loadVideosFromMediaStore(context)
                 lastCacheTime = System.currentTimeMillis()
             }
 
             val videos = cachedVideos ?: emptyList()
-            val paginatedVideos = paginateResults(videos, page)
+            val paginated = paginateResults(videos, page)
+            _videosFlow.value = if (page == 0) paginated else _videosFlow.value + paginated
 
-            _videosFlow.value = if (page == 0) paginatedVideos else _videosFlow.value + paginatedVideos
-
-            Result.success(paginatedVideos)
+            Result.success(paginated)
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
@@ -81,21 +76,17 @@ class MediaRepository @Inject constructor() {
         try {
             _isLoading.value = true
 
-            if (shouldRefreshCache(forceRefresh)) {
-                cachedImages = null
-            }
-
+            if (shouldRefreshCache(forceRefresh)) cachedImages = null
             if (cachedImages == null) {
                 cachedImages = loadImagesFromMediaStore(context)
                 lastCacheTime = System.currentTimeMillis()
             }
 
             val images = cachedImages ?: emptyList()
-            val paginatedImages = paginateResults(images, page)
+            val paginated = paginateResults(images, page)
+            _imagesFlow.value = if (page == 0) paginated else _imagesFlow.value + paginated
 
-            _imagesFlow.value = if (page == 0) paginatedImages else _imagesFlow.value + paginatedImages
-
-            Result.success(paginatedImages)
+            Result.success(paginated)
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
@@ -137,17 +128,20 @@ class MediaRepository @Inject constructor() {
         val mediaFiles = mutableListOf<MediaFile>()
         val seenUris = mutableSetOf<String>()
 
+        // Projection includes DATA and RELATIVE_PATH for folder name
         val projection = arrayOf(
             MediaStore.MediaColumns._ID,
             MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.MediaColumns.DATE_ADDED,
             MediaStore.MediaColumns.SIZE,
-            MediaStore.MediaColumns.MIME_TYPE
+            MediaStore.MediaColumns.MIME_TYPE,
+            MediaStore.MediaColumns.DATA,           // Legacy path
+            MediaStore.MediaColumns.RELATIVE_PATH   // Scoped storage path
         )
 
         val sortOrder = "${MediaStore.MediaColumns.DATE_ADDED} DESC"
         val selection = "${MediaStore.MediaColumns.SIZE} > ?"
-        val selectionArgs = arrayOf("0") // Filter out 0-byte files
+        val selectionArgs = arrayOf("0") // Exclude 0-byte files
 
         try {
             context.contentResolver.query(
@@ -162,6 +156,8 @@ class MediaRepository @Inject constructor() {
                 val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
                 val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
                 val mimeIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+                val dataIndex = cursor.getColumnIndexOrNull(MediaStore.MediaColumns.DATA)
+                val relativePathIndex = cursor.getColumnIndexOrNull(MediaStore.MediaColumns.RELATIVE_PATH)
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idIndex)
@@ -169,6 +165,16 @@ class MediaRepository @Inject constructor() {
                     val dateAdded = cursor.getLong(dateIndex)
                     val size = cursor.getLong(sizeIndex)
                     val mimeType = cursor.getString(mimeIndex) ?: ""
+                    val filePath = dataIndex?.let { cursor.getString(it) } ?: ""
+                    val relativePath = relativePathIndex?.let { cursor.getString(it) } ?: ""
+
+                    // Extract folder name
+                    val folderName = when {
+                        relativePath.isNotEmpty() -> relativePath.trimEnd('/')
+                        filePath.isNotEmpty() -> filePath.substringBeforeLast('/', "")
+                            .substringAfterLast('/')
+                        else -> "Unknown"
+                    }
 
                     val mediaUri = Uri.withAppendedPath(uri, id.toString())
 
@@ -181,13 +187,13 @@ class MediaRepository @Inject constructor() {
                                 dateAdded = Date(dateAdded * 1000),
                                 size = size,
                                 mimeType = mimeType,
+                                folderName = folderName
                             )
                         )
                     }
                 }
             }
         } catch (e: SecurityException) {
-            // Handle permission issues gracefully
             throw IllegalStateException("Missing media access permissions", e)
         }
 
@@ -237,5 +243,14 @@ class MediaRepository @Inject constructor() {
         imageObserver?.let { context.contentResolver.unregisterContentObserver(it) }
         videoObserver = null
         imageObserver = null
+    }
+}
+
+// Safe column index lookup
+private fun android.database.Cursor.getColumnIndexOrNull(columnName: String): Int? {
+    return try {
+        getColumnIndexOrThrow(columnName)
+    } catch (e: Exception) {
+        null
     }
 }

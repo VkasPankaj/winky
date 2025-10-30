@@ -8,6 +8,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.belazy.winky.ui.screens.detail.MediaDetailScreen
 import com.belazy.winky.ui.components.VideoPlayer
+import com.belazy.winky.ui.screens.folderview.FolderDetailScreen
 
 @Composable
 fun AppNavGraph() {
@@ -32,5 +33,10 @@ fun AppNavGraph() {
             val uri = Uri.decode(encodedUri)
             VideoPlayer(uri = uri.toUri())
         }
+        composable("folderDetail/{folderName}") { backStackEntry ->
+            val folderName = backStackEntry.arguments?.getString("folderName") ?: ""
+            FolderDetailScreen(navController, folderName)
+        }
+
     }
 }
